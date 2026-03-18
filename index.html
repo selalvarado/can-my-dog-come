@@ -375,7 +375,7 @@
             document.getElementById('yesView').classList.remove('hidden');
             
             document.getElementById('yesRestaurantName').textContent = restaurant.assumed_name_s;
-            document.getElementById('yesAddress').textContent = restaurant.street_address || 'Address not available';
+            document.getElementById('yesAddress').textContent = restaurant.street || 'Address not available';
             document.getElementById('yesStatus').textContent = 
                 `✓ Valid sidewalk cafe permit (expires: ${expirationDate.toLocaleDateString()})`;
         }
