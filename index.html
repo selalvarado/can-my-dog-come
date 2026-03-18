@@ -655,14 +655,14 @@
 
             try {
                 return new Promise((resolve) => {
-                    const service = new google.maps.places.PlacesService(document.createElement('div'));
+                    const service = new google.maps.places.Place(document.createElement('div'));
                     const request = {
                         query: `${restaurantName} ${address} New York`,
                         fields: ['name', 'rating', 'user_ratings_total', 'price_level', 'types', 'url']
                     };
 
                     service.findPlaceFromQuery(request, (results, status) => {
-                        if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                        if (status === google.maps.places.PlaceStatus.OK && results && results.length > 0) {
                             const place = results[0];
                             const result = {
                                 rating: place.rating,
