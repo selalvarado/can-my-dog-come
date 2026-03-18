@@ -152,23 +152,94 @@
             box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);
         }
 
+        .restaurant-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
         .restaurant-name {
             font-size: 20px;
             font-weight: 700;
             color: #1f2937;
+            flex: 1;
+        }
+
+        .restaurant-rating {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #f59e0b;
+            margin-left: 12px;
+        }
+
+        .restaurant-meta {
+            display: flex;
+            gap: 12px;
             margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .meta-badge {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .meta-badge.price {
+            background: #dcfce7;
+            color: #15803d;
         }
 
         .restaurant-address {
-            font-size: 16px;
+            font-size: 14px;
             color: #6b7280;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .restaurant-license {
-            font-size: 14px;
-            color: #16a34a;
+            font-size: 13px;
+            color: #15803d;
             font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .restaurant-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .maps-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .maps-link:hover {
+            background: #2563eb;
+        }
+
+        .loading-badge {
+            background: #f3f4f6;
+            color: #9ca3af;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-style: italic;
         }
 
         .restaurants-list {
@@ -367,7 +438,7 @@
 
             <div class="footer">
                 Checking NYC sidewalk cafe permits database
-                <div class="footer-hint">Real-time data from NYC Open Data</div>
+                <div class="footer-hint">Enhanced with Google Places ratings & info</div>
             </div>
         </div>
 
@@ -428,12 +499,16 @@
     </div>
 
     <script>
+        // ⚠️ PASTE YOUR RESTRICTED GOOGLE PLACES API KEY HERE
+        const GOOGLE_API_KEY = AIzaSyDBkeNURxsoBt1399VgDW9FIU-dB7w1DOw;
+        
         const input = document.getElementById('restaurant');
         const searchBtn = document.getElementById('searchBtn');
         const boroughSelect = document.getElementById('borough');
         const browseBtn = document.getElementById('browseBtn');
         
         let allRestaurants = [];
+        let placesCache = {}; // Cache Google Places results
 
         // Enable search on Enter key
         input.addEventListener('keypress', function(e) {
@@ -563,6 +638,84 @@
             return allRestaurants;
         }
 
+        async function getGooglePlacesInfo(restaurantName, address) {
+            // Check cache first
+            const cacheKey = `${restaurantName}_${address}`;
+            if (placesCache[cacheKey]) {
+                return placesCache[cacheKey];
+            }
+
+            try {
+                // Use Find Place API to search for the restaurant
+                const searchQuery = `${restaurantName} ${address} New York`;
+                const findPlaceUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(searchQuery)}&inputtype=textquery&fields=place_id&key=${GOOGLE_API_KEY}`;
+                
+                const findResponse = await fetch(findPlaceUrl);
+                const findData = await findResponse.json();
+
+                if (findData.candidates && findData.candidates.length > 0) {
+                    const placeId = findData.candidates[0].place_id;
+                    
+                    // Get place details
+                    const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=rating,user_ratings_total,price_level,types,url&key=${GOOGLE_API_KEY}`;
+                    const detailsResponse = await fetch(detailsUrl);
+                    const detailsData = await detailsResponse.json();
+
+                    if (detailsData.result) {
+                        const result = {
+                            rating: detailsData.result.rating,
+                            ratingsCount: detailsData.result.user_ratings_total,
+                            priceLevel: detailsData.result.price_level,
+                            types: detailsData.result.types,
+                            mapsUrl: detailsData.result.url
+                        };
+                        
+                        // Cache the result
+                        placesCache[cacheKey] = result;
+                        return result;
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching Google Places data:', error);
+            }
+
+            return null;
+        }
+
+        function getPriceLevelDisplay(priceLevel) {
+            if (!priceLevel) return null;
+            return '$'.repeat(priceLevel);
+        }
+
+        function getCuisineType(types) {
+            if (!types) return null;
+            
+            const cuisineTypes = {
+                'italian_restaurant': 'Italian',
+                'chinese_restaurant': 'Chinese',
+                'japanese_restaurant': 'Japanese',
+                'mexican_restaurant': 'Mexican',
+                'french_restaurant': 'French',
+                'indian_restaurant': 'Indian',
+                'thai_restaurant': 'Thai',
+                'pizza_restaurant': 'Pizza',
+                'seafood_restaurant': 'Seafood',
+                'steakhouse': 'Steakhouse',
+                'american_restaurant': 'American',
+                'cafe': 'Cafe',
+                'bar': 'Bar',
+                'bakery': 'Bakery'
+            };
+
+            for (let type of types) {
+                if (cuisineTypes[type]) {
+                    return cuisineTypes[type];
+                }
+            }
+
+            return 'Restaurant';
+        }
+
         function shuffleArray(array) {
             const shuffled = [...array];
             for (let i = shuffled.length - 1; i > 0; i--) {
@@ -572,7 +725,7 @@
             return shuffled;
         }
 
-        function showBrowseResults(borough, restaurants) {
+        async function showBrowseResults(borough, restaurants) {
             document.getElementById('formView').classList.add('hidden');
             document.getElementById('browseView').classList.remove('hidden');
             
@@ -583,19 +736,72 @@
             const listContainer = document.getElementById('restaurantsList');
             listContainer.innerHTML = '';
 
-            restaurants.forEach(restaurant => {
+            // Show restaurants immediately, then enhance with Google data
+            restaurants.forEach(async (restaurant, index) => {
                 const card = document.createElement('div');
                 card.className = 'restaurant-card';
+                card.id = `restaurant-${index}`;
                 
                 const expirationDate = new Date(restaurant.license_expiration_date);
                 
+                // Initial card without Google data
                 card.innerHTML = `
-                    <div class="restaurant-name">${restaurant.assumed_name_s}</div>
+                    <div class="restaurant-header">
+                        <div class="restaurant-name">${restaurant.assumed_name_s}</div>
+                        <div class="restaurant-rating-placeholder"></div>
+                    </div>
+                    <div class="restaurant-meta">
+                        <span class="loading-badge">Loading info...</span>
+                    </div>
                     <div class="restaurant-address">${restaurant.street || 'Address not available'}</div>
                     <div class="restaurant-license">✓ Valid license (expires: ${expirationDate.toLocaleDateString()})</div>
+                    <div class="restaurant-actions"></div>
                 `;
                 
                 listContainer.appendChild(card);
+
+                // Fetch Google Places data asynchronously
+                const placesInfo = await getGooglePlacesInfo(restaurant.assumed_name_s, restaurant.street);
+                
+                // Update card with Google data
+                if (placesInfo) {
+                    const ratingPlaceholder = card.querySelector('.restaurant-rating-placeholder');
+                    if (placesInfo.rating) {
+                        ratingPlaceholder.innerHTML = `
+                            <div class="restaurant-rating">
+                                ⭐ ${placesInfo.rating}
+                                ${placesInfo.ratingsCount ? `<span style="color: #9ca3af; font-size: 14px;">(${placesInfo.ratingsCount})</span>` : ''}
+                            </div>
+                        `;
+                    }
+
+                    const metaContainer = card.querySelector('.restaurant-meta');
+                    let metaHTML = '';
+                    
+                    const cuisine = getCuisineType(placesInfo.types);
+                    if (cuisine) {
+                        metaHTML += `<span class="meta-badge">${cuisine}</span>`;
+                    }
+                    
+                    const priceLevel = getPriceLevelDisplay(placesInfo.priceLevel);
+                    if (priceLevel) {
+                        metaHTML += `<span class="meta-badge price">${priceLevel}</span>`;
+                    }
+
+                    metaContainer.innerHTML = metaHTML || '<span class="loading-badge">Info not available</span>';
+
+                    if (placesInfo.mapsUrl) {
+                        const actionsContainer = card.querySelector('.restaurant-actions');
+                        actionsContainer.innerHTML = `
+                            <a href="${placesInfo.mapsUrl}" target="_blank" class="maps-link">
+                                📍 View on Google Maps
+                            </a>
+                        `;
+                    }
+                } else {
+                    const metaContainer = card.querySelector('.restaurant-meta');
+                    metaContainer.innerHTML = '<span class="loading-badge">Info not available</span>';
+                }
             });
         }
 
@@ -655,6 +861,11 @@
         // Initialize button states
         searchBtn.disabled = true;
         browseBtn.disabled = true;
+
+        // Check if API key is set
+        if (GOOGLE_API_KEY === 'YOUR_API_KEY_HERE') {
+            console.warn('⚠️ Google Places API key not set! Please add your API key to enable enhanced features.');
+        }
     </script>
 </body>
 </html>
