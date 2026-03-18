@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Can My Dog Come? 🐕</title>
+    <!-- Google Places JavaScript API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDBkeNURxsoBt1399VgDW9FIU-dB7w1DOw&libraries=places" async defer></script>
     <style>
         * {
             margin: 0;
@@ -499,9 +501,6 @@
     </div>
 
     <script>
-        // ⚠️ PASTE YOUR RESTRICTED GOOGLE PLACES API KEY HERE
-        const GOOGLE_API_KEY = 'AIzaSyDBkeNURxsoBt1399VgDW9FIU-dB7w1DOw';
-        
         const input = document.getElementById('restaurant');
         const searchBtn = document.getElementById('searchBtn');
         const boroughSelect = document.getElementById('borough');
@@ -524,7 +523,10 @@
 
         // Enable/disable browse button based on borough selection
         boroughSelect.addEventListener('change', function() {
+            console.log('Borough selected:', boroughSelect.value);
+            console.log('Browse button before:', browseBtn.disabled);
             browseBtn.disabled = !boroughSelect.value;
+            console.log('Browse button after:', browseBtn.disabled);
         });
 
         async function searchRestaurant() {
@@ -645,41 +647,43 @@
                 return placesCache[cacheKey];
             }
 
-            try {
-                // Use Find Place API to search for the restaurant
-                const searchQuery = `${restaurantName} ${address} New York`;
-                const findPlaceUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(searchQuery)}&inputtype=textquery&fields=place_id&key=${GOOGLE_API_KEY}`;
-                
-                const findResponse = await fetch(findPlaceUrl);
-                const findData = await findResponse.json();
-
-                if (findData.candidates && findData.candidates.length > 0) {
-                    const placeId = findData.candidates[0].place_id;
-                    
-                    // Get place details
-                    const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=rating,user_ratings_total,price_level,types,url&key=${GOOGLE_API_KEY}`;
-                    const detailsResponse = await fetch(detailsUrl);
-                    const detailsData = await detailsResponse.json();
-
-                    if (detailsData.result) {
-                        const result = {
-                            rating: detailsData.result.rating,
-                            ratingsCount: detailsData.result.user_ratings_total,
-                            priceLevel: detailsData.result.price_level,
-                            types: detailsData.result.types,
-                            mapsUrl: detailsData.result.url
-                        };
-                        
-                        // Cache the result
-                        placesCache[cacheKey] = result;
-                        return result;
-                    }
-                }
-            } catch (error) {
-                console.error('Error fetching Google Places data:', error);
+            // Wait for Google Maps to load
+            if (!window.google || !window.google.maps) {
+                console.warn('Google Maps not loaded yet');
+                return null;
             }
 
-            return null;
+            try {
+                return new Promise((resolve) => {
+                    const service = new google.maps.places.PlacesService(document.createElement('div'));
+                    const request = {
+                        query: `${restaurantName} ${address} New York`,
+                        fields: ['name', 'rating', 'user_ratings_total', 'price_level', 'types', 'url']
+                    };
+
+                    service.findPlaceFromQuery(request, (results, status) => {
+                        if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                            const place = results[0];
+                            const result = {
+                                rating: place.rating,
+                                ratingsCount: place.user_ratings_total,
+                                priceLevel: place.price_level,
+                                types: place.types,
+                                mapsUrl: place.url
+                            };
+                            
+                            // Cache the result
+                            placesCache[cacheKey] = result;
+                            resolve(result);
+                        } else {
+                            resolve(null);
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error('Error fetching Google Places data:', error);
+                return null;
+            }
         }
 
         function getPriceLevelDisplay(priceLevel) {
@@ -861,11 +865,6 @@
         // Initialize button states
         searchBtn.disabled = true;
         browseBtn.disabled = true;
-
-        // Check if API key is set
-        if (GOOGLE_API_KEY === 'YOUR_API_KEY_HERE') {
-            console.warn('⚠️ Google Places API key not set! Please add your API key to enable enhanced features.');
-        }
     </script>
 </body>
 </html>
