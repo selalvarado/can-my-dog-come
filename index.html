@@ -646,36 +646,40 @@
             if (placesCache[cacheKey]) {
                 return placesCache[cacheKey];
             }
-
+ 
             // Wait for Google Maps to load
             if (!window.google || !window.google.maps) {
                 console.warn('Google Maps not loaded yet');
                 return null;
             }
-
+ 
             try {
                 return new Promise((resolve) => {
-                    const service = new google.maps.places.Place(document.createElement('div'));
+                    // Create a temporary div for the service
+                    const service = new google.maps.places.PlacesService(document.createElement('div'));
+                    
                     const request = {
                         query: `${restaurantName} ${address} New York`,
-                        fields: ['name', 'rating', 'user_ratings_total', 'price_level', 'types', 'url']
+                        fields: ['name', 'rating', 'user_ratings_total', 'price_level', 'types', 'url', 'place_id']
                     };
-
-                    service.findPlaceFromQuery(request, (results, status) => {
-                        if (status === google.maps.places.PlaceStatus.OK && results && results.length > 0) {
+ 
+                    // Use textSearch instead of findPlaceFromQuery
+                    service.textSearch(request, (results, status) => {
+                        if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
                             const place = results[0];
                             const result = {
                                 rating: place.rating,
                                 ratingsCount: place.user_ratings_total,
                                 priceLevel: place.price_level,
                                 types: place.types,
-                                mapsUrl: place.url
+                                mapsUrl: place.url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurantName + ' ' + address)}`
                             };
                             
                             // Cache the result
                             placesCache[cacheKey] = result;
                             resolve(result);
                         } else {
+                            console.log('Places search status:', status);
                             resolve(null);
                         }
                     });
